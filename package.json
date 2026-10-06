@@ -6,7 +6,7 @@
     "build": "npm run build:win && npm run build:linux",
     "build:win": "pkg . --options no-warnings --targets node18-win-x64 --output dist/mooncrust-win.exe",
     "build:linux": "pkg . --options no-warnings --targets node18-linux-x64 --output dist/mooncrust-linux",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "node --test test/"
   },
   "keywords": [],
   "author": "",
