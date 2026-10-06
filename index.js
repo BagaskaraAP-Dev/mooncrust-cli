@@ -197,14 +197,27 @@ function runInteractive() {
   // Riwayat percakapan selama sesi berlangsung
   const history = [];
 
+  // Input diproses berurutan, sehingga "exit" menunggu balasan yang sedang berjalan
+  let queue = Promise.resolve();
+
+  const quit = () => {
+    console.log(chalk.yellow('\nSampai jumpa!'));
+    process.exit(0);
+  };
+
   rl.prompt();
 
-  rl.on('line', async (line) => {
+  rl.on('line', (line) => {
+    queue = queue.then(() => handleInput(line));
+  }).on('close', () => {
+    queue.then(quit);
+  }).on('SIGINT', quit);
+
+  async function handleInput(line) {
     const input = line.trim();
 
     if (input.toLowerCase() === 'keluar' || input.toLowerCase() === 'exit') {
-      console.log(chalk.yellow('\nSampai jumpa!'));
-      process.exit(0);
+      quit();
     }
 
     if (input !== '') {
@@ -230,10 +243,7 @@ function runInteractive() {
     }
 
     rl.prompt();
-  }).on('close', () => {
-    console.log(chalk.yellow('\nSampai jumpa!'));
-    process.exit(0);
-  });
+  }
 }
 
 function main() {
