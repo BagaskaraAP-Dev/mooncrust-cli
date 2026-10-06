@@ -5,6 +5,7 @@ const path = require('path');
 const figlet = require('figlet');
 const chalk = require('chalk');
 const readline = require('readline');
+const { version } = require('./package.json');
 
 const USAGE = [
   'Penggunaan:',
@@ -14,18 +15,21 @@ const USAGE = [
   '',
   'Opsi:',
   '  -f, --file <path>   File yang isinya disertakan ke dalam pesan',
+  '  -v, --version       Tampilkan versi',
   '  -h, --help          Tampilkan bantuan ini'
 ].join('\n');
 
 // Membaca argumen CLI
 function parseArgs(argv) {
-  const args = { file: null, help: false, prompt: [] };
+  const args = { file: null, help: false, version: false, prompt: [] };
 
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
 
     if (arg === '-h' || arg === '--help') {
       args.help = true;
+    } else if (arg === '-v' || arg === '--version') {
+      args.version = true;
     } else if (arg === '-f' || arg === '--file') {
       if (i + 1 >= argv.length) {
         throw new Error(`Opsi ${arg} membutuhkan path file.`);
@@ -258,6 +262,11 @@ function main() {
 
   if (args.help) {
     console.log(USAGE);
+    return;
+  }
+
+  if (args.version) {
+    console.log(`mooncrust ${version}`);
     return;
   }
 

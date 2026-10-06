@@ -32,6 +32,7 @@ mooncrust --file app.js "Tolong refactor ini"
 | Opsi | Keterangan |
 |---|---|
 | `-f`, `--file <path>` | File yang isinya disertakan ke dalam pesan |
+| `-v`, `--version` | Tampilkan versi |
 | `-h`, `--help` | Tampilkan bantuan |
 
 ## Build Binary
