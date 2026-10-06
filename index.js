@@ -95,27 +95,41 @@ async function streamChat(content) {
 
   const reader = response.body.getReader();
   const decoder = new TextDecoder('utf-8');
+  // Menyimpan baris yang belum lengkap sampai chunk berikutnya tiba
+  let buffer = '';
 
   while (true) {
     const { done, value } = await reader.read();
-    if (done) break;
+    if (done) {
+      buffer += decoder.decode();
+      handleLine(buffer);
+      break;
+    }
 
-    const chunk = decoder.decode(value, { stream: true });
-    const lines = chunk.split('\n');
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split('\n');
+    buffer = lines.pop();
 
     for (const line of lines) {
-      if (line.startsWith('data: ') && line !== 'data: [DONE]') {
-        try {
-          const data = JSON.parse(line.slice(6));
-          if (data.text) {
-            process.stdout.write(chalk.white(data.text));
-          } else if (data.error) {
-            process.stdout.write(chalk.red(`[Server: ${data.error}]`));
-          }
-        } catch (e) {
-          // Abaikan jika JSON terpotong di tengah stream
-        }
+      handleLine(line);
+    }
+  }
+}
+
+// Memproses satu baris SSE
+function handleLine(rawLine) {
+  const line = rawLine.replace(/\r$/, '');
+
+  if (line.startsWith('data: ') && line !== 'data: [DONE]') {
+    try {
+      const data = JSON.parse(line.slice(6));
+      if (data.text) {
+        process.stdout.write(chalk.white(data.text));
+      } else if (data.error) {
+        process.stdout.write(chalk.red(`[Server: ${data.error}]`));
       }
+    } catch (e) {
+      // Abaikan baris yang bukan JSON valid
     }
   }
 }
