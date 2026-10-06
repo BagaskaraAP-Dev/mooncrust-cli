@@ -66,8 +66,9 @@ function describeError(error) {
   }
 }
 
-// Mengirim pesan ke API dan menulis balasan secara streaming ke terminal
-async function streamChat(content) {
+// Mengirim percakapan ke API, menulis balasan secara streaming ke terminal,
+// lalu mengembalikan teks balasan lengkap
+async function streamChat(messages) {
   // Batas waktu hanya berlaku sampai server mulai merespons, bukan selama streaming
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), CONNECT_TIMEOUT_MS);
@@ -80,7 +81,7 @@ async function streamChat(content) {
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        messages: [{ role: 'user', content }],
+        messages,
         model: 'mc-pro'
       }),
       signal: controller.signal
@@ -97,12 +98,13 @@ async function streamChat(content) {
   const decoder = new TextDecoder('utf-8');
   // Menyimpan baris yang belum lengkap sampai chunk berikutnya tiba
   let buffer = '';
+  let reply = '';
 
   while (true) {
     const { done, value } = await reader.read();
     if (done) {
       buffer += decoder.decode();
-      handleLine(buffer);
+      reply += handleLine(buffer);
       break;
     }
 
@@ -111,12 +113,14 @@ async function streamChat(content) {
     buffer = lines.pop();
 
     for (const line of lines) {
-      handleLine(line);
+      reply += handleLine(line);
     }
   }
+
+  return reply;
 }
 
-// Memproses satu baris SSE
+// Memproses satu baris SSE dan mengembalikan teks balasan di dalamnya
 function handleLine(rawLine) {
   const line = rawLine.replace(/\r$/, '');
 
@@ -125,6 +129,7 @@ function handleLine(rawLine) {
       const data = JSON.parse(line.slice(6));
       if (data.text) {
         process.stdout.write(chalk.white(data.text));
+        return data.text;
       } else if (data.error) {
         process.stdout.write(chalk.red(`[Server: ${data.error}]`));
       }
@@ -132,6 +137,8 @@ function handleLine(rawLine) {
       // Abaikan baris yang bukan JSON valid
     }
   }
+
+  return '';
 }
 
 // Mode one-liner: kirim satu pesan, tulis balasan, lalu keluar
@@ -154,7 +161,7 @@ async function runOnce(args) {
   }
 
   try {
-    await streamChat(content);
+    await streamChat([{ role: 'user', content }]);
     process.stdout.write('\n');
     process.exitCode = 0;
   } catch (error) {
@@ -187,6 +194,9 @@ function runInteractive() {
     prompt: chalk.greenBright('Anda ❯ ')
   });
 
+  // Riwayat percakapan selama sesi berlangsung
+  const history = [];
+
   rl.prompt();
 
   rl.on('line', async (line) => {
@@ -200,10 +210,20 @@ function runInteractive() {
     if (input !== '') {
       process.stdout.write(chalk.magentaBright('\nMooncrust ❯ '));
 
+      history.push({ role: 'user', content: input });
+
       try {
-        await streamChat(input);
+        const reply = await streamChat(history);
+        if (reply) {
+          history.push({ role: 'assistant', content: reply });
+        } else {
+          // Server tidak mengirim balasan, misalnya karena error di sisi server
+          history.pop();
+        }
         console.log('\n');
       } catch (error) {
+        // Pesan yang gagal dikirim tidak disimpan ke riwayat
+        history.pop();
         console.log(chalk.red('\n[' + describeError(error) + ']'));
         console.log('\n');
       }
